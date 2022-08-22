@@ -1,53 +1,40 @@
 package main
 
-// with go modules enabled (GO111MODULE=on or outside GOPATH)
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"runtime/debug"
+	"time"
+
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"os"
-	"time"
 )
 
 const (
-	otelOperatorUpstreamUrl     = "git@github.com:open-telemetry/opentelemetry-operator.git"
 	otelOperatorHttpUpstreamUrl = "https://github.com/open-telemetry/opentelemetry-operator.git"
-	goGitUpstreamUrl            = "https://github.com/go-git/go-git"
 )
 
 func main() {
-	// TODO Need to rm -rf the target repo first  Can we generate a temporary directory and delete it when we are done?
-	targetDirectory := "/tmp/opentelemetry-operator"
-	// 8e7a34e2297dbb2fe83bb7db2945636c81bf320b..b18ddf1f4b49c422d87d394ba1d51d01ddbab68f
-	startCommit := "8e7a34e2297dbb2fe83bb7db2945636c81bf320b"
+	startCommit := "8e7a34e2297dbb2fe83bb7db2945636c81bf320b" // TODO get these and the repo URL from arguments
 	finishCommit := "b18ddf1f4b49c422d87d394ba1d51d01ddbab68f"
-
-	repository, err := cloneRepository(targetDirectory)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
+	targetDirectory, err := ioutil.TempDir("/tmp", "otel-operator")
+	checkIfError(err)
+	defer os.RemoveAll(targetDirectory)
+	repository := cloneRepository(targetDirectory)
 
 	startTime, finishTime, err := getStartAndFinishTimeStamps(err, repository, startCommit, finishCommit)
 	fmt.Println("Timestamps", startTime, finishTime)
 
 	//  git log --ancestry-path 8e7a34e2297dbb2fe83bb7db2945636c81bf320b..b18ddf1f4b49c422d87d394ba1d51d01ddbab68f --oneline
-	logOptions := &git.LogOptions{
-		Since: &startTime,
-		Until: &finishTime,
-	}
+	logOptions := &git.LogOptions{Since: &startTime, Until: &finishTime}
 	commitIterator, err := repository.Log(logOptions)
+	checkIfError(err)
 	count := 0
 	err = commitIterator.ForEach(func(commit *object.Commit) error { // FIXME we're getting 64 entries here, but 63 online; there could be an off by one problem
 		count += 1
-		// fmt.Println(commit.Hash)
-
-		commit.Files()
-
 		fileIterator, err := commit.Files() // TODO: Look at TREE also
-		if err != nil {
-			return err
-		}
+		checkIfError(err)
 		fileCount := 0
 		fileIterator.ForEach(func(f *object.File) error { // TODO what if there is more than one change?
 			//if strings.HasSuffix(f.Name, "Dockerfile") {
@@ -60,16 +47,13 @@ func main() {
 		return nil // End of commit iterator
 	})
 	fmt.Println("Got", count, "commits")
-
 }
 
 func getStartAndFinishTimeStamps(err error, repository *git.Repository, startCommit string, finishCommit string) (time.Time, time.Time, error) {
 	startCommitTime := time.Now()
 	finishCommitTime := time.Now()
 	commitIter, err := repository.CommitObjects()
-	if err != nil {
-		return startCommitTime, finishCommitTime, err
-	}
+	checkIfError(err)
 
 	defer commitIter.Close()
 
@@ -91,6 +75,7 @@ func getStartAndFinishTimeStamps(err error, repository *git.Repository, startCom
 		// is there any way to quit when both values are found?
 		return nil
 	})
+
 	// FIXME return an error here if both have not been found
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -101,11 +86,21 @@ func getStartAndFinishTimeStamps(err error, repository *git.Repository, startCom
 
 }
 
-func cloneRepository(targetDirectory string) (*git.Repository, error) {
+func cloneRepository(targetDirectory string) *git.Repository {
 	os.RemoveAll(targetDirectory) // ignore the error here, at least if the directory doesn't exist...
-	repository, err := git.PlainClone(targetDirectory, false, &git.CloneOptions{
-		URL:      otelOperatorHttpUpstreamUrl,
-		Progress: os.Stdout,
-	})
-	return repository, err
+	cloneOptions := &git.CloneOptions{URL: otelOperatorHttpUpstreamUrl, Progress: os.Stdout}
+	repository, err := git.PlainClone(targetDirectory, false, cloneOptions)
+	checkIfError(err)
+	return repository
+}
+
+// checkIfError should be used to naively panics if an error is not nil.  Stolen from https://github.com/go-git/go-git/blob/master/_examples/common.go
+func checkIfError(err error) {
+	if err == nil {
+		return
+	}
+
+	fmt.Printf("\x1b[31;1m%s\x1b[0m\n", fmt.Sprintf("error: %s", err))
+	debug.PrintStack()
+	os.Exit(1)
 }
