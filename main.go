@@ -3,11 +3,14 @@ package main
 /*
 From: https://stackoverflow.com/questions/34018908/golang-why-dont-we-have-a-set-datastructure
 
-The usual answer for golang question: "Why provide a feature when you can rewrite it in just a few lines?". This is why
-something that can be done in 3 explicit lines in python (or many other languages) takes 50+ obscure lines in go. This
-is one of the reasons (along with single letter variables) why I hate reading go code. It's uselessly long, just doing
-with for loops what should be done by a clear, efficient and well tested properly named function. Go "spirit" is just
-throwing away 50 years of good software engineering practice with dubious justifications. –
+The usual answer for golang question: "Why provide a feature when you can rewrite
+it in just a few lines?". This is why something that can be done in 3 explicit
+lines in python (or many other languages) takes 50+ obscure lines in go. This
+is one of the reasons (along with single letter variables) why I hate reading go
+code. It's uselessly long, just doing with for loops what should be done by a clear,
+efficient and well tested properly named function. Go "spirit" is just throwing
+away 50 years of good software engineering practice with dubious justifications. –
+
 Colin Pitrat
  Jul 8, 2021 at 11:34
 */
