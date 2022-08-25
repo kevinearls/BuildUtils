@@ -76,7 +76,7 @@ func getChangedFileNames(startCommit *object.Commit, finishCommit *object.Commit
 }
 
 func cloneRepository() (*git.Repository, string) {
-	targetDirectory, err := ioutil.TempDir("/tmp", "otel-operator")
+	targetDirectory, err := ioutil.TempDir(os.TempDir(), "otel-operator")
 	os.RemoveAll(targetDirectory) // ignore the error here, at least if the directory doesn't exist...
 	cloneOptions := &git.CloneOptions{URL: otelOperatorHttpUpstreamUrl, Progress: os.Stdout}
 	repository, err := git.PlainClone(targetDirectory, false, cloneOptions)
